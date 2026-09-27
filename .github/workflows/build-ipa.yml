@@ -25,6 +25,14 @@ on:
         description: URL of a .tar.gz with the prebuilt native libraries (optional)
         type: string
         default: ""
+  # workflow_dispatch is only offered once this file is on the default branch;
+  # until then, pushes to the branch that adds it run it.
+  push:
+    branches: [claude/ipa-sideloading-requirements-a9cpd3]
+    paths: [.github/workflows/build-ipa.yml, scripts/make-ipa.sh, scripts/check-ipa-inputs.sh]
+
+env:
+  CONFIGURATION: ${{ inputs.configuration || 'Debug' }}
 
 permissions:
   contents: read
@@ -69,12 +77,10 @@ jobs:
         run: scripts/check-ipa-inputs.sh
 
       - name: Build and package IPA
-        env:
-          CONFIGURATION: ${{ inputs.configuration }}
         run: scripts/make-ipa.sh
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Madeira-${{ inputs.configuration }}-${{ github.sha }}
+          name: Madeira-${{ env.CONFIGURATION }}-${{ github.sha }}
           path: dist/Madeira.ipa
           if-no-files-found: error
