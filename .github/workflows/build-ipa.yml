@@ -1,0 +1,80 @@
+name: Build IPA
+
+# Builds Madeira.app on a macOS runner and uploads an ad-hoc signed IPA for a
+# sideloading tool to re-sign. See scripts/make-ipa.sh.
+#
+# Several link inputs are not in the repository (docs/BUILDING.md). FEXCore is
+# built here; the Wine unix-side and DXMT archives need toolchains this job does
+# not have, so supply them through `native_libs_url`: a .tar.gz whose paths are
+# relative to the repository root, e.g.
+#   app/Madeira/libntdll_unix.a  app/Madeira/libwineserver.a
+#   app/Madeira/libwin32u_unix.a app/Madeira/libdxmt_combined.a
+#   app/Madeira/x86_64-vcruntime/*.dll  (optional)
+# Without them the job stops at the input check, whose table in the run summary
+# lists what is missing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: Build configuration (Debug runs the games; Release has crashed the guest)
+        type: choice
+        options: [Debug, Release]
+        default: Debug
+      native_libs_url:
+        description: URL of a .tar.gz with the prebuilt native libraries (optional)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install build tools
+        run: brew install ninja ccache
+
+      - name: Fetch prebuilt native libraries
+        if: inputs.native_libs_url != ''
+        env:
+          URL: ${{ inputs.native_libs_url }}
+        run: curl -fsSL "$URL" | tar -xzv -C "$GITHUB_WORKSPACE"
+
+      - name: Cache FEX build
+        uses: actions/cache@v4
+        with:
+          path: FEX/build-ios
+          key: fex-ios-${{ runner.os }}-${{ hashFiles('.gitmodules', 'build/fex-ios/build.sh') }}-${{ github.sha }}
+          restore-keys: fex-ios-${{ runner.os }}-${{ hashFiles('.gitmodules', 'build/fex-ios/build.sh') }}-
+
+      - name: Build FEXCore
+        # Reported by the input check below if it fails, alongside everything
+        # else that is missing, rather than hiding the rest of the list.
+        continue-on-error: true
+        run: |
+          build/fex-ios/build.sh
+          # The app also links these; build/fex-ios/build.sh names only the
+          # FEXCore targets.
+          cmake --build FEX/build-ios --target JemallocLibs fmt cephes_128bit xxhash softfloat_3e || true
+
+      - name: Check build inputs
+        run: scripts/check-ipa-inputs.sh
+
+      - name: Build and package IPA
+        env:
+          CONFIGURATION: ${{ inputs.configuration }}
+        run: scripts/make-ipa.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Madeira-${{ inputs.configuration }}-${{ github.sha }}
+          path: dist/Madeira.ipa
+          if-no-files-found: error
