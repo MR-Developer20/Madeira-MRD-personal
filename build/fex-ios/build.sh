@@ -8,8 +8,10 @@ B="$R/FEX/build-ios"
 if [ ! -f "$B/CMakeCache.txt" ]; then
     # CMAKE_SYSTEM_NAME makes this a cross build, for which CMake leaves
     # CMAKE_SYSTEM_PROCESSOR empty; FEX's CMakeLists rejects an empty one.
+    # TUNE_CPU defaults to "native", which tunes for the BUILD machine by
+    # reading /proc/cpuinfo (absent on macOS); the target is an iPhone.
     cmake -S "$R/FEX" -B "$B" -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_SYSTEM_PROCESSOR=arm64 \
-        -DCMAKE_OSX_ARCHITECTURES=arm64 \
+        -DCMAKE_OSX_ARCHITECTURES=arm64 -DTUNE_CPU=none \
         -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DCMAKE_BUILD_TYPE=Release \
         -DBUILD_TESTING=OFF -DBUILD_THUNKS=OFF -DBUILD_FEXCONFIG=OFF -DBUILD_FEX_LINUX_TESTS=OFF \
         -DENABLE_FEX_ALLOCATOR=OFF -DENABLE_ASSERTIONS=OFF -DENABLE_CLANG_THUNKS=ON -DENABLE_CCACHE=ON
