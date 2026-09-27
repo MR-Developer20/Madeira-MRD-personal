@@ -5,10 +5,11 @@
 set -eu
 R="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 B="$R/FEX/build-ios"
-# The pinned FEX commit has diagnostics that only compile in the ARM64EC
-# (mingw) build: FEX_IOS_HOST-only symbols in Core.cpp and Windows VirtualQuery
-# in Arm64.cpp, outside any #ifdef. This native build defines neither
-# FEX_IOS_HOST nor _WIN32, so guard them. Each applied once; skipped when present.
+# The pinned FEX commit has code that only compiles in the ARM64EC (mingw)
+# build: FEX_IOS_HOST-only symbols in Core.cpp, Windows VirtualQuery in
+# Arm64.cpp, and an rpmalloc-only IOS_RPM_GUARD in AllocatorHooks.cpp's system
+# malloc path. This native build defines neither FEX_IOS_HOST nor _WIN32 and
+# has ENABLE_FEX_ALLOCATOR off, so patch them. Each applied once; skipped when present.
 for P in "$R"/patches/fex-ios-*.patch; do
     if ! git -C "$R/FEX" apply --reverse --check "$P" 2>/dev/null; then
         git -C "$R/FEX" apply "$P"
