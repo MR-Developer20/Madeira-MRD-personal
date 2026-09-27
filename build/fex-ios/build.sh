@@ -5,8 +5,23 @@
 set -eu
 R="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 B="$R/FEX/build-ios"
+# The pinned FEX commit has code that only compiles in the ARM64EC (mingw)
+# build: FEX_IOS_HOST-only symbols in Core.cpp, Windows VirtualQuery in
+# Arm64.cpp, and an rpmalloc-only IOS_RPM_GUARD in AllocatorHooks.cpp's system
+# malloc path. This native build defines neither FEX_IOS_HOST nor _WIN32 and
+# has ENABLE_FEX_ALLOCATOR off, so patch them. Each applied once; skipped when present.
+for P in "$R"/patches/fex-ios-*.patch; do
+    if ! git -C "$R/FEX" apply --reverse --check "$P" 2>/dev/null; then
+        git -C "$R/FEX" apply "$P"
+    fi
+done
 if [ ! -f "$B/CMakeCache.txt" ]; then
-    cmake -S "$R/FEX" -B "$B" -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_ARCHITECTURES=arm64 \
+    # CMAKE_SYSTEM_NAME makes this a cross build, for which CMake leaves
+    # CMAKE_SYSTEM_PROCESSOR empty; FEX's CMakeLists rejects an empty one.
+    # TUNE_CPU defaults to "native", which tunes for the BUILD machine by
+    # reading /proc/cpuinfo (absent on macOS); the target is an iPhone.
+    cmake -S "$R/FEX" -B "$B" -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_SYSTEM_PROCESSOR=arm64 \
+        -DCMAKE_OSX_ARCHITECTURES=arm64 -DTUNE_CPU=none \
         -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DCMAKE_BUILD_TYPE=Release \
         -DBUILD_TESTING=OFF -DBUILD_THUNKS=OFF -DBUILD_FEXCONFIG=OFF -DBUILD_FEX_LINUX_TESTS=OFF \
         -DENABLE_FEX_ALLOCATOR=OFF -DENABLE_ASSERTIONS=OFF -DENABLE_CLANG_THUNKS=ON -DENABLE_CCACHE=ON
