@@ -5,6 +5,13 @@
 set -eu
 R="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 B="$R/FEX/build-ios"
+# The pinned FEX commit uses FEX_IOS_HOST-only symbols (defined in the ARM64EC
+# module sources) outside an #ifdef in Core.cpp; this native build does not
+# define FEX_IOS_HOST, so guard them. Applied once; skipped when present.
+P="$R/patches/fex-ios-guard-core-reporters.patch"
+if ! git -C "$R/FEX" apply --reverse --check "$P" 2>/dev/null; then
+    git -C "$R/FEX" apply "$P"
+fi
 if [ ! -f "$B/CMakeCache.txt" ]; then
     # CMAKE_SYSTEM_NAME makes this a cross build, for which CMake leaves
     # CMAKE_SYSTEM_PROCESSOR empty; FEX's CMakeLists rejects an empty one.

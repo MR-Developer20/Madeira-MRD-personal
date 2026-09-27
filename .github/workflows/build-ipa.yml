@@ -29,7 +29,7 @@ on:
   # until then, pushes to the branch that adds it run it.
   push:
     branches: [claude/ipa-sideloading-requirements-a9cpd3]
-    paths: [.github/workflows/build-ipa.yml, scripts/make-ipa.sh, scripts/check-ipa-inputs.sh, build/fex-ios/build.sh]
+    paths: [.github/workflows/build-ipa.yml, scripts/make-ipa.sh, scripts/check-ipa-inputs.sh, build/fex-ios/build.sh, patches/fex-*.patch]
 
 env:
   CONFIGURATION: ${{ inputs.configuration || 'Debug' }}
